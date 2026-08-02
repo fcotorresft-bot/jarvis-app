@@ -1542,6 +1542,18 @@ function drawEdges(side, pulse){
   var fxIn=null, master=null, outAnalyser=null, ob=null;
   var micStream=null, micSrc=null, micNode=null, micAnalyser=null, mb=null;
   var scheduled=[], nextStart=0;
+  var transcript=[];
+  var WEBHOOK_MEM="https://n8n-1iul.srv1807401.hstgr.cloud/webhook/jarvis-memoria-guardar";
+  function saveMemory(){
+    if(!transcript.length) return;
+    var t=getToken(); if(!t){ transcript=[]; return; }
+    var payload=JSON.stringify({transcript:transcript});
+    try{
+      if(navigator.sendBeacon){ navigator.sendBeacon(WEBHOOK_MEM+'?t='+encodeURIComponent(t), new Blob([payload],{type:'application/json'})); }
+      else { fetch(WEBHOOK_MEM+'?t='+encodeURIComponent(t),{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true}); }
+    }catch(e){}
+    transcript=[];
+  }
 
   function setStatus(t,on){ stx.textContent=t; sel.classList.toggle('on',!!on); }
   function getToken(){ return (localStorage.getItem('jarvis_token')||'').replace(/^Bearer\s+/i,''); }
@@ -1655,12 +1667,14 @@ function drawEdges(side, pulse){
           var b=(m.audio_event||{}).audio_base_64; if(b) playChunk(b64ToF32(b));
         } else if(m.type==='interruption'){
           stopPlayback();
+        } else if(m.type==='user_transcript'){
+          var ut=(m.user_transcription_event||{}).user_transcript; if(ut) transcript.push({role:'usuario',text:ut});
         } else if(m.type==='agent_response'){
-          console.log('[JARVIS] dice:',(m.agent_response_event||{}).agent_response);
+          var ar=(m.agent_response_event||{}).agent_response; if(ar) transcript.push({role:'jarvis',text:ar});
         }
       };
       ws.onerror=function(){ setStatus('Error de conexion'); };
-      ws.onclose=function(){ connected=false; stopPlayback(); stopMic(); setStatus('Desconectado'); ws=null; $('j-connect').textContent='Hablar con JARVIS'; };
+      ws.onclose=function(){ connected=false; stopPlayback(); stopMic(); saveMemory(); setStatus('Desconectado'); ws=null; $('j-connect').textContent='Hablar con JARVIS'; };
       return true;
     }catch(e){ console.error(e); setStatus('Error: '+e.message); return false; }
   }
@@ -1670,6 +1684,7 @@ function drawEdges(side, pulse){
     if(ws){ disconnect(); $('j-connect').textContent='Hablar con JARVIS'; }
     else { $('j-connect').textContent='Cortar'; var ok=await connect(); if(!ok) $('j-connect').textContent='Hablar con JARVIS'; }
   };
+  window.addEventListener('beforeunload', saveMemory);
   requestAnimationFrame(pump);
 })();
 

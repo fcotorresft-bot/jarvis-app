@@ -1675,9 +1675,9 @@ function drawEdges(side, pulse){
         } else if(m.type==='interruption'){
           stopPlayback();
         } else if(m.type==='user_transcript'){
-          var ut=(m.user_transcription_event||{}).user_transcript; if(ut) transcript.push({role:'usuario',text:ut});
+          var ut=(m.user_transcription_event||{}).user_transcript; if(ut&&ut.trim()&&ut.trim()!=='...') transcript.push({role:'usuario',text:ut});
         } else if(m.type==='agent_response'){
-          var ar=(m.agent_response_event||{}).agent_response; if(ar) transcript.push({role:'jarvis',text:ar});
+          var ar=(m.agent_response_event||{}).agent_response; if(ar&&ar.trim()) transcript.push({role:'jarvis',text:ar});
         }
       };
       ws.onerror=function(){ setStatus('Error de conexion'); };

@@ -421,7 +421,11 @@ new ResizeObserver(resize).observe(cv);
   var fxIn=null, master=null, outAnalyser=null, ob=null;
   var micStream=null, micSrc=null, micNode=null, micAnalyser=null, mb=null;
   var scheduled=[], nextStart=0, transcript=[];
-  var hablaHasta=0, problema=false, demoOn=false;
+  var problema=false, demoOn=false;
+  /* estado por EVENTOS (no por nivel de audio):
+     amarillo desde que Francisco termina de hablar (JARVIS piensa/busca/responde)
+     hasta que termina de decir su respuesta. Celeste el resto del tiempo. */
+  var trabajando=false, ultimoChunk=0, trabajandoDesde=0;
 
   function setStatus(t,on){ stx.textContent=t; sel.classList.toggle('on',!!on); }
   function getToken(){ return (localStorage.getItem('jarvis_token')||'').replace(/^Bearer\s+/i,''); }
@@ -478,11 +482,14 @@ new ResizeObserver(resize).observe(cv);
       var out=0,mic=0;
       if(outAnalyser){outAnalyser.getByteTimeDomainData(ob);out=rms(ob);}
       if(micAnalyser){micAnalyser.getByteTimeDomainData(mb);mic=rms(mb);}
-      if(out>0.015) hablaHasta=Date.now()+450;
-      var jarvisHabla=Date.now()<hablaHasta;
-      if(!demoOn) setEstadoVisual(problema?'problema':(jarvisHabla?'ejecutando':'escuchando'));
-      window.__J_rayos=!jarvisHabla;
-      window.__J_amp=Math.min(1,(jarvisHabla?out:mic)*4.0);
+      /* ¿termino de responder? cola vacia + sin chunks nuevos por un rato */
+      if(trabajando && ultimoChunk && AC && AC.currentTime>nextStart &&
+         (Date.now()-ultimoChunk)>700){ trabajando=false; ultimoChunk=0; }
+      /* salvaguarda: si penso y nunca llego audio, no se queda amarillo para siempre */
+      if(trabajando && !ultimoChunk && (Date.now()-trabajandoDesde)>20000) trabajando=false;
+      if(!demoOn) setEstadoVisual(problema?'problema':(trabajando?'ejecutando':'escuchando'));
+      window.__J_rayos=!trabajando;                  // rayos solo mientras te escucha
+      window.__J_amp=Math.min(1,(trabajando?out:mic)*4.0);
     } else {
       window.__J_amp=null; window.__J_rayos=true;
       if(!demoOn) setEstadoVisual(problema?'problema':'escuchando');
@@ -565,16 +572,19 @@ new ResizeObserver(resize).observe(cv);
         if(m.type==='conversation_initiation_metadata'){ connected=true; setStatus('Conectado',true); startMic(); }
         else if(m.type==='ping'){ try{ws.send(JSON.stringify({type:'pong',
           event_id:(m.ping_event||{}).event_id}));}catch(e){} }
-        else if(m.type==='audio'){ var b=(m.audio_event||{}).audio_base_64; if(b) playChunk(b64ToF32(b)); }
-        else if(m.type==='interruption'){ stopPlayback(); }
+        else if(m.type==='audio'){ var b=(m.audio_event||{}).audio_base_64;
+          if(b){ ultimoChunk=Date.now(); trabajando=true; playChunk(b64ToF32(b)); } }
+        else if(m.type==='interruption'){ stopPlayback(); trabajando=false; ultimoChunk=0; }
         else if(m.type==='user_transcript'){ var ut=(m.user_transcription_event||{}).user_transcript;
-          if(ut&&ut.trim()&&ut.trim()!=='...') transcript.push({role:'usuario',text:ut}); }
+          if(ut&&ut.trim()&&ut.trim()!=='...'){ transcript.push({role:'usuario',text:ut});
+            trabajando=true; ultimoChunk=0; trabajandoDesde=Date.now(); } }   /* terminaste de hablar -> JARVIS piensa */
         else if(m.type==='agent_response'){ var ar=(m.agent_response_event||{}).agent_response;
           if(ar&&ar.trim()) transcript.push({role:'jarvis',text:ar}); }
       };
       ws.onerror=function(){ setStatus('Error de conexion'); problema=true;
         setTimeout(function(){problema=false;},6000); };
-      ws.onclose=function(){ connected=false; stopPlayback(); stopMic(); saveMemory();
+      ws.onclose=function(){ connected=false; trabajando=false; ultimoChunk=0;
+        stopPlayback(); stopMic(); saveMemory();
         setStatus('Desconectado'); ws=null; $('j-connect').textContent='Hablar'; };
       return true;
     }catch(e){ setStatus('Error: '+e.message); return false; }

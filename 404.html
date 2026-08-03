@@ -1290,25 +1290,7 @@ function frame(now){
   // aristas frontales
   drawEdges(1, pulse);
 
-  // anillos frontales
-  const PI = Math.PI;
-  drawRing(pulse, R*1.050, R*1.181, ringAngle, '10,90,225', [
-    {a0:0,    a1:PI,   body:'12,88,215', hi:'130,210,255', t:1},
-    {a0:PI,   a1:2*PI, body:'5,38,120',  hi:'70,140,215',  t:1}
-  ]);
-  drawRing(pulse, R*1.181, R*1.243, ring2Angle, '5,45,140', [
-    {a0:0,       a1:2*PI/3, body:'9,62,170', hi:'80,160,230'},
-    {a0:2*PI/3,  a1:4*PI/3, body:'5,38,120', hi:'55,120,200'},
-    {a0:4*PI/3,  a1:2*PI,   body:'3,22,78',  hi:'38,88,160'}
-  ]);
-  drawRing(pulse, R*1.243, R*1.282, ring3Angle, '6,50,150', [
-    {a0:0,       a1:PI/3,   body:'16,100,230', hi:'110,190,245'},
-    {a0:PI/3,    a1:2*PI/3, body:'13,84,205',  hi:'88,168,235'},
-    {a0:2*PI/3,  a1:PI,     body:'10,68,175',  hi:'70,148,222'},
-    {a0:PI,      a1:4*PI/3, body:'8,52,145',   hi:'55,126,205'},
-    {a0:4*PI/3,  a1:5*PI/3, body:'5,38,115',   hi:'42,104,185'},
-    {a0:5*PI/3,  a1:2*PI,   body:'3,26,88',    hi:'32,84,160'}
-  ]);
+  drawOrganigrama(pulse, time);
 
   // halo exterior
   const halo = ctx.createRadialGradient(CX, CY, RScur*0.9, CX, CY, RScur*1.6);
@@ -1368,6 +1350,7 @@ function drawSol(pulse, time){
 }
 
 function drawRayos(dt, time, pulse){
+  if(window.__J_rayos===false) return;
   const cx = CX, cy = CY;
   const rSol = RScur*0.25*(1 + amp*0.12);
   const activos = 13 + Math.round(amp*14);
@@ -1533,6 +1516,105 @@ function drawEdges(side, pulse){
 }
 
 
+/* ===== ORGANIGRAMA DE JARVIS =====
+   Nucleo = Francisco · esfera = JARVIS
+   anillo 1 = agentes · bloque 2+3 = subagentes + sus tareas (giran juntos)
+   Estructura editable: window.JARVIS.org({...})                              */
+var ORG_CFG = {
+  agentes: [
+    {nombre:'Arquitecto', subagentes:[
+      {nombre:'Diseno',  tareas:['disenar','revisar']},
+      {nombre:'Entrega', tareas:['prompt']}
+    ]},
+    {nombre:'Informacion', subagentes:[
+      {nombre:'Web',     tareas:['buscar','leer pagina']},
+      {nombre:'Memoria', tareas:['guardar','recordar']}
+    ]},
+    {nombre:'Sistema', subagentes:[
+      {nombre:'Revision', tareas:['chequeo']}
+    ]}
+  ]
+};
+var ORG_ACTIVOS = {};
+function orgActivo(n){ return !!ORG_ACTIVOS[n]; }
+
+function orgBanda(rIn,rOut,a0,a1,col,alpha,pulse){
+  var rMid=(rIn+rOut)/2, w=Math.max(1,rOut-rIn);
+  ctx.lineCap='butt';
+  ctx.beginPath(); ctx.arc(CX,CY,rMid,a0,a1);
+  ctx.strokeStyle=c(col, alpha*pulse); ctx.lineWidth=w; ctx.stroke();
+}
+function orgNeon(rIn,rOut,a0,a1,time){
+  var rMid=(rIn+rOut)/2, w=Math.max(1,rOut-rIn);
+  var f=0.55+0.45*Math.sin(time*5.0);
+  ctx.lineCap='butt';
+  ctx.beginPath(); ctx.arc(CX,CY,rMid,a0,a1);
+  ctx.strokeStyle=c('mid',0.20*f); ctx.lineWidth=w*2.4; ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX,CY,rMid,a0,a1);
+  ctx.strokeStyle=c('hot',0.90*f); ctx.lineWidth=w*0.45; ctx.stroke();
+}
+function orgSep(rIn,rOut,a,alpha){
+  ctx.beginPath();
+  ctx.moveTo(CX+Math.cos(a)*rIn, CY+Math.sin(a)*rIn);
+  ctx.lineTo(CX+Math.cos(a)*rOut, CY+Math.sin(a)*rOut);
+  ctx.strokeStyle=c('light',alpha); ctx.lineWidth=1.2; ctx.stroke();
+}
+function orgFilo(r,alpha){
+  ctx.beginPath(); ctx.arc(CX,CY,r,0,6.283);
+  ctx.strokeStyle=c('mid',alpha); ctx.lineWidth=1.1; ctx.stroke();
+}
+
+function drawOrganigrama(pulse, time){
+  var ags=(ORG_CFG&&ORG_CFG.agentes)||[];
+  if(!ags.length) return;
+  var TAU=Math.PI*2;
+  var r1a=R*1.045, r1b=R*1.150;
+  var r2a=R*1.170, r2b=R*1.242;
+  var r3a=R*1.242, r3b=R*1.300;
+  var spin1=ringAngle, spin2=ring2Angle;
+  var pa=TAU/ags.length, i, j, k;
+
+  for(i=0;i<ags.length;i++){
+    var a0=spin1+i*pa, a1=a0+pa, act=orgActivo(ags[i].nombre);
+    orgBanda(r1a,r1b,a0+0.012,a1-0.012,'core2',act?0.34:0.22,pulse);
+    if(act) orgNeon(r1a,r1b,a0+0.012,a1-0.012,time);
+    orgSep(r1a,r1b,a0,0.35*pulse);
+  }
+  orgFilo(r1a,0.30*pulse); orgFilo(r1b,0.30*pulse);
+
+  for(i=0;i<ags.length;i++){
+    var subs=ags[i].subagentes||[];
+    var A0=spin2+i*pa;
+    orgSep(r2a,r3b,A0,0.34*pulse);
+    if(!subs.length) continue;
+    var ps=pa/subs.length;
+    for(j=0;j<subs.length;j++){
+      var b0=A0+j*ps, b1=b0+ps, actS=orgActivo(subs[j].nombre);
+      orgBanda(r2a,r2b,b0+0.010,b1-0.010,'core3',actS?0.44:0.30,pulse);
+      if(actS) orgNeon(r2a,r2b,b0+0.010,b1-0.010,time);
+      orgSep(r2a,r2b,b0,0.22*pulse);
+      var tks=subs[j].tareas||[];
+      if(!tks.length) continue;
+      var pt=ps/tks.length;
+      for(k=0;k<tks.length;k++){
+        var t0=b0+k*pt, t1=t0+pt, actT=orgActivo(tks[k]);
+        orgBanda(r3a,r3b,t0+0.008,t1-0.008,'fil2',actT?0.42:0.24,pulse);
+        if(actT) orgNeon(r3a,r3b,t0+0.008,t1-0.008,time);
+        orgSep(r3a,r3b,t0,0.16*pulse);
+      }
+    }
+  }
+  orgFilo(r2a,0.24*pulse); orgFilo(r3b,0.26*pulse);
+}
+
+/* estados: escuchando (celeste) · ejecutando (amarillo) · problema (rojo) */
+var J_ESTADO='escuchando';
+function setEstadoVisual(e){
+  if(e===J_ESTADO) return;
+  J_ESTADO=e;
+  PT = (e==='problema') ? PALETAS.rojo : (e==='ejecutando' ? PALETAS.amarillo : PALETAS.azul);
+}
+
 /* ===== capa de app JARVIS (conexion + voz) ===== */
 (function(){
   var WEBHOOK="https://n8n-1iul.srv1807401.hstgr.cloud/webhook/jarvis";
@@ -1601,14 +1683,45 @@ function drawEdges(side, pulse){
   }
 
   function rms(buf){ var s=0; for(var i=0;i<buf.length;i++){ var v=(buf[i]-128)/128; s+=v*v; } return Math.sqrt(s/buf.length); }
+  var hablaHasta=0, problema=false, demoOn=false;
   function pump(){
     if(connected){
-      var lvl=0;
-      if(outAnalyser){ outAnalyser.getByteTimeDomainData(ob); lvl=Math.max(lvl,rms(ob)); }
-      if(micAnalyser){ micAnalyser.getByteTimeDomainData(mb); lvl=Math.max(lvl,rms(mb)*0.9); }
-      window.__J_amp=Math.min(1, lvl*4.0);
-    } else { window.__J_amp=null; }
+      var out=0, mic=0;
+      if(outAnalyser){ outAnalyser.getByteTimeDomainData(ob); out=rms(ob); }
+      if(micAnalyser){ micAnalyser.getByteTimeDomainData(mb); mic=rms(mb); }
+      if(out>0.015) hablaHasta=Date.now()+450;
+      var jarvisHabla = Date.now()<hablaHasta;
+      if(!demoOn) setEstadoVisual(problema?'problema':(jarvisHabla?'ejecutando':'escuchando'));
+      window.__J_rayos = !jarvisHabla;          // rayos solo mientras te escucha
+      window.__J_amp = Math.min(1,(jarvisHabla?out:mic)*4.0);
+    } else {
+      window.__J_amp=null; window.__J_rayos=true;
+      if(!demoOn) setEstadoVisual(problema?'problema':'escuchando');
+    }
     requestAnimationFrame(pump);
+  }
+
+  /* API publica: estructura y estados editables (a futuro, por voz) */
+  window.JARVIS={
+    org:function(cfg){ if(cfg){ ORG_CFG=cfg; } return ORG_CFG; },
+    activar:function(nombre,v){ ORG_ACTIVOS[nombre]=(v!==false); },
+    apagar:function(nombre){ delete ORG_ACTIVOS[nombre]; },
+    limpiar:function(){ ORG_ACTIVOS={}; },
+    problema:function(v){ problema=(v!==false); },
+    estado:function(e){ if(e) setEstadoVisual(e); return J_ESTADO; }
+  };
+
+  /* modo demo (?demo=1): recorre estados y enciende agentes para revisar el diseno */
+  if(location.search.indexOf('demo=1')>=0){
+    demoOn=true;
+    var pasos=[
+      function(){ ORG_ACTIVOS={}; setEstadoVisual('escuchando'); },
+      function(){ ORG_ACTIVOS={'Arquitecto':1,'Diseno':1,'disenar':1}; setEstadoVisual('ejecutando'); },
+      function(){ ORG_ACTIVOS={'Informacion':1,'Web':1,'buscar':1,'Memoria':1,'recordar':1}; setEstadoVisual('ejecutando'); },
+      function(){ ORG_ACTIVOS={'Sistema':1,'Revision':1,'chequeo':1}; setEstadoVisual('problema'); }
+    ];
+    var di=0; pasos[0]();
+    setInterval(function(){ di++; pasos[di%pasos.length](); }, 4500);
   }
 
   function b64ToF32(b64){ var bin=atob(b64),len=bin.length,u8=new Uint8Array(len);
@@ -1680,7 +1793,7 @@ function drawEdges(side, pulse){
           var ar=(m.agent_response_event||{}).agent_response; if(ar&&ar.trim()) transcript.push({role:'jarvis',text:ar});
         }
       };
-      ws.onerror=function(){ setStatus('Error de conexion'); };
+      ws.onerror=function(){ setStatus('Error de conexion'); problema=true; setTimeout(function(){problema=false;},6000); };
       ws.onclose=function(){ connected=false; stopPlayback(); stopMic(); saveMemory(); setStatus('Desconectado'); ws=null; $('j-connect').textContent='Hablar con JARVIS'; };
       return true;
     }catch(e){ console.error(e); setStatus('Error: '+e.message); return false; }

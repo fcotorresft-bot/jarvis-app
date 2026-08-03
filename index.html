@@ -1544,13 +1544,20 @@ function drawEdges(side, pulse){
   var scheduled=[], nextStart=0;
   var transcript=[];
   var WEBHOOK_MEM="https://n8n-1iul.srv1807401.hstgr.cloud/webhook/jarvis-memoria-guardar";
+  function toast(msg){
+    try{ var el=document.createElement('div'); el.textContent=msg;
+      el.style.cssText='position:fixed;left:50%;bottom:150px;transform:translateX(-50%);background:rgba(8,40,90,.85);color:#9fdcff;border:1px solid rgba(120,205,255,.5);border-radius:999px;padding:8px 16px;font:500 12px/1 ui-monospace,monospace;letter-spacing:.08em;z-index:30;pointer-events:none';
+      document.body.appendChild(el); setTimeout(function(){ if(el&&el.remove) el.remove(); },2500);
+    }catch(e){}
+  }
   function saveMemory(){
     if(!transcript.length) return;
     var t=getToken(); if(!t){ transcript=[]; return; }
     var payload=JSON.stringify({transcript:transcript});
     try{
-      if(navigator.sendBeacon){ navigator.sendBeacon(WEBHOOK_MEM+'?t='+encodeURIComponent(t), new Blob([payload],{type:'application/json'})); }
-      else { fetch(WEBHOOK_MEM+'?t='+encodeURIComponent(t),{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true}); }
+      fetch(WEBHOOK_MEM+'?t='+encodeURIComponent(t),{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true})
+        .then(function(){ toast('memoria guardada'); })
+        .catch(function(){ toast('no se pudo guardar'); });
     }catch(e){}
     transcript=[];
   }

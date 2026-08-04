@@ -430,6 +430,8 @@ new ResizeObserver(resize).observe(cv);
      amarillo desde que Francisco termina de hablar (JARVIS piensa/busca/responde)
      hasta que termina de decir su respuesta. Celeste el resto del tiempo. */
   var trabajando=false, ultimoChunk=0, trabajandoDesde=0;
+  /* modo mute: al decir "mute/silencio" JARVIS se calla hasta que digas "Jarvis" */
+  var muteVoz=false;
 
   function setStatus(t,on){ stx.textContent=t; sel.classList.toggle('on',!!on); }
   function getToken(){ return (localStorage.getItem('jarvis_token')||'').replace(/^Bearer\s+/i,''); }
@@ -577,17 +579,23 @@ new ResizeObserver(resize).observe(cv);
         else if(m.type==='ping'){ try{ws.send(JSON.stringify({type:'pong',
           event_id:(m.ping_event||{}).event_id}));}catch(e){} }
         else if(m.type==='audio'){ var b=(m.audio_event||{}).audio_base_64;
-          if(b){ ultimoChunk=Date.now(); trabajando=true; playChunk(b64ToF32(b)); } }
+          if(b && !muteVoz){ ultimoChunk=Date.now(); trabajando=true; playChunk(b64ToF32(b)); } }
         else if(m.type==='interruption'){ stopPlayback(); trabajando=false; ultimoChunk=0; }
         else if(m.type==='user_transcript'){ var ut=(m.user_transcription_event||{}).user_transcript;
           if(ut&&ut.trim()&&ut.trim()!=='...'){ transcript.push({role:'usuario',text:ut});
-            trabajando=true; ultimoChunk=0; trabajandoDesde=Date.now(); } }   /* terminaste de hablar -> JARVIS piensa */
+            var low=ut.toLowerCase();
+            if(!muteVoz && /(^|\s)(mute|muteate|mutear|silencio)(\s|\.|,|$)/.test(low)){
+              muteVoz=true; stopPlayback(); trabajando=false; ultimoChunk=0;
+              setStatus('Silenciado',false); toast('JARVIS en silencio - di "Jarvis" para reactivar'); }
+            else if(muteVoz && /(^|\s)jarvis(\s|\.|,|!|\?|$)/.test(low)){
+              muteVoz=false; setStatus('Conectado',true); toast('JARVIS activo'); }
+            else if(!muteVoz){ trabajando=true; ultimoChunk=0; trabajandoDesde=Date.now(); } } }   /* terminaste de hablar -> JARVIS piensa */
         else if(m.type==='agent_response'){ var ar=(m.agent_response_event||{}).agent_response;
           if(ar&&ar.trim()) transcript.push({role:'jarvis',text:ar}); }
       };
       ws.onerror=function(){ setStatus('Error de conexion'); problema=true;
         setTimeout(function(){problema=false;},6000); };
-      ws.onclose=function(){ connected=false; trabajando=false; ultimoChunk=0;
+      ws.onclose=function(){ connected=false; trabajando=false; ultimoChunk=0; muteVoz=false;
         stopPlayback(); stopMic(); saveMemory();
         setStatus('Desconectado'); ws=null; $('j-connect').textContent='Hablar'; };
       return true;

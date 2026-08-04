@@ -180,11 +180,11 @@ var ORG_CFG={agentes:[
   {nombre:'Arquitecto', subagentes:[
     {nombre:'Diseno',  tareas:['disenar','revisar']},
     {nombre:'Entrega', tareas:['prompt']}]},
+  {nombre:'Control Calidad', subagentes:[
+    {nombre:'Pruebas', tareas:['voz','web','memoria']}]},
   {nombre:'Informacion', subagentes:[
     {nombre:'Web',     tareas:['buscar','leer pagina']},
-    {nombre:'Memoria', tareas:['guardar','recordar']}]},
-  {nombre:'Sistema', subagentes:[
-    {nombre:'Revision', tareas:['chequeo']}]}
+    {nombre:'Memoria', tareas:['guardar','recordar']}]}
 ]};
 var ORG_ACTIVOS={};
 function orgActivo(n){ return !!ORG_ACTIVOS[n]; }
@@ -618,7 +618,7 @@ new ResizeObserver(resize).observe(cv);
       function(){ ORG_ACTIVOS={'Arquitecto':1,'Diseno':1,'disenar':1}; setEstadoVisual('ejecutando'); },
       function(){ ORG_ACTIVOS={'Informacion':1,'Web':1,'buscar':1,'Memoria':1,'recordar':1};
         setEstadoVisual('ejecutando'); },
-      function(){ ORG_ACTIVOS={'Sistema':1,'Revision':1,'chequeo':1}; setEstadoVisual('problema'); }
+      function(){ ORG_ACTIVOS={'Control Calidad':1,'Pruebas':1,'voz':1}; setEstadoVisual('problema'); }
     ];
     var di=0; pasos[0]();
     setInterval(function(){ di++; pasos[di%pasos.length](); },4500);
